@@ -820,7 +820,10 @@ body[data-cat] .aurora{opacity:1}
         const result = await runTransaction(gameRef, current => {
           const deck = normalize(current && current.deckState);
           const pool = deck[category];
-          if (!pool.length) return current === null ? undefined : current;
+          // Abort (rather than commit an unchanged value) so `committed` comes
+          // back false and the caller can say the suit ran out. Reachable only
+          // if the other player drained it between our render and this click.
+          if (!pool.length) return;
           const text = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
           return { currentCard: { category, text, by: myId, at: Date.now() }, deckState: deck };
         }, { applyLocally: false });
