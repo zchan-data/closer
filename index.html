@@ -1,0 +1,233 @@
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+  import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+
+  // 1. Fetch the hidden config from our Vercel API
+  const response = await fetch('/api/config');
+  const firebaseConfig = await response.json();
+
+  // 2. Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const gameRef = ref(db, 'sharedGame');
+
+  // 3. Paste your full masterDeck here
+  const masterDeck = {
+  stayClose: [
+    "What was the exact moment you realized you were falling for me?",
+    "When you're having a stressful day, what’s the best way for me to comfort you from afar?",
+    "What is a small, everyday habit of mine that you’ve noticed from our video calls?",
+    "When we are apart, what specific memory of us do you replay in your head the most?",
+    "How do you feel our communication has evolved since we first went long-distance?",
+    "What is something you’ve been wanting to tell me, but haven't found the right moment for yet?",
+    "What is your absolute favorite non-physical trait of mine?",
+    "In what moments do you feel the most understood by me?",
+    "What is something we completely disagree on that you actually appreciate about us?",
+    "If you could teleport to me for exactly 10 minutes right now, how would we spend them?",
+    "What was the hardest day of being long-distance for you, and what got you through it?",
+    "How has loving me from a distance changed your perspective on what makes a relationship work?",
+    "What do you think is our biggest shared strength as a couple right now?",
+    "What is a song that instantly makes you think of me when it plays?",
+    "What is one thing I do—without realizing it—that always makes you feel secure?",
+    "What was the exact moment today when you wished I was right there with you?",
+    "How do you usually ground yourself when the distance starts feeling overwhelming?",
+    "What is a deeply held belief of yours that I have helped change or soften?",
+    "Which of my friends or family members were you most nervous to meet virtually?",
+    "What is something you’re currently struggling with that I can help carry the weight of?",
+    "What is the most valuable lesson this long-distance experience is teaching us?",
+    "When we are silent on a call while doing our own things, how does it make you feel?",
+    "What is a boundary we’ve set in our relationship that you are really grateful for?",
+    "How do you prefer me to apologize when I mess up from miles away?",
+    "What is a specific trait of mine that you want to cultivate more of in yourself?",
+    "When you describe me to people who haven't met me, what is the first thing you say?",
+    "What is a fear about our relationship you used to have, but don't anymore?",
+    "Which of your personal achievements are you most proud of since we started dating?",
+    "What is a conversation we had early on that completely shifted how you saw me?",
+    "If you could capture one feeling from our relationship in a bottle, what would it feel like?",
+    "What is something I’ve told you about my past that made you love me more?",
+    "How do you know when I’m genuinely happy just by looking at me on a screen?",
+    "What is the most unexpected way we are similar?",
+    "What is the most comforting thing I’ve ever said to you during a breakdown?",
+    "What part of your daily routine do you feel is most 'ours' even though we are apart?",
+    "What is something you used to be insecure about that I’ve helped you embrace?",
+    "If you had to write a one-sentence summary of our relationship so far, what would it be?",
+    "What is the best piece of advice you’ve ever received about making distance work?",
+    "How do you recharge your emotional battery after a particularly tough week?",
+    "What is a silly inside joke we have that makes absolutely no sense to anyone else?",
+    "What is the most vulnerable you have ever felt with me?",
+    "How has your definition of 'home' changed since we met?",
+    "What is a small compromise you’ve made for us that you are actually happy about?",
+    "When you wake up before I do, what are you usually thinking about?",
+    "What is something I do that makes you feel instantly respected and heard?",
+    "If we could only communicate via voice notes for a week, what would you miss most?",
+    "What is a trait you’ve discovered about yourself through loving me?",
+    "What is a moment where you felt entirely, completely proud of me?",
+    "How do we complement each other’s weaknesses?",
+    "What is the single biggest reason you know the distance is worth it?"
+  ],
+  ourFuture: [
+    "When we finally live in the same city, what will our first lazy Sunday morning look like?",
+    "What is a local spot in your current city that you can’t wait to show me in person?",
+    "How do you picture our home decorated when we eventually move in together?",
+    "What is the very first meal we are going to cook together in our shared kitchen?",
+    "What is a mundane, boring chore you are actually excited to do together once the distance is closed?",
+    "If we could take a one-week vacation anywhere in the world to celebrate 'closing the gap', where are we going?",
+    "What is a new hobby or activity you want us to learn together in person?",
+    "How do you imagine we will handle our first big argument when we live in the same house?",
+    "What is a tradition you want to start for our anniversaries once we are no longer long-distance?",
+    "When you picture us five years from now, what is the most vivid detail you see?",
+    "What is one thing from your current independent routine that you want to keep when we live together?",
+    "If we adopt a pet together in the future, what kind of animal is it and what are we naming it?",
+    "What is the first thing you want to do the moment you pick me up from the airport/train station next time?",
+    "What city do you secretly think would be the absolute perfect place for us to settle down in?",
+    "How do we best balance our individual career goals with our ultimate goal of being in the same place?",
+    "Who will be the first person to visit us once we officially have a shared address?",
+    "What is a piece of furniture you are insisting we buy together for our first place?",
+    "When we merge our lives, what is one chore you are happily volunteering to take over?",
+    "Where is the first place we are going for groceries together, and what’s in the cart?",
+    "What does a typical Tuesday evening look like for us five years from now?",
+    "If we could build a custom room in our future house, what would its purpose be?",
+    "What is a career milestone of yours that we will celebrate in person together?",
+    "How do you envision us handling the holidays once we are living together?",
+    "What is a road trip route you want us to drive once we have a shared car?",
+    "What is the first major purchase you want us to save up for as a couple?",
+    "When we are old and gray, what will we be known for in our neighborhood?",
+    "What is a bad habit of yours that you promise to fix before we move in together?",
+    "How will we establish personal space and alone time when we share a home?",
+    "What is the first dinner party menu we are cooking for our friends?",
+    "If you had to guess, who will end up waking up earlier once we live together?",
+    "What is a specific piece of art or decor you want hanging in our living room?",
+    "What will be our go-to takeout spot in our future city?",
+    "How do you picture our morning coffee or breakfast routine?",
+    "What is a financial goal you want us to tackle in our first year of living together?",
+    "If we have a free weekend with zero plans, how are we spending it?",
+    "What is a skill you want to master before we close the gap?",
+    "How will we celebrate the exact one-year anniversary of closing the distance?",
+    "What is an argument you think we’ll laugh about once we are finally in the same room?",
+    "If we ever decide to completely reinvent our lives and move abroad, where are we going?",
+    "What is the most exciting thing about growing older with me?",
+    "What is a cultural or family tradition you want us to pass down?",
+    "How do you want us to support each other during major life transitions?",
+    "What is the first movie we are watching on our couch in our new place?",
+    "If we were to start a business or side project together, what would it be?",
+    "What is a bucket-list concert or event we have to attend together?",
+    "How do you envision us decorating for our favorite holiday?",
+    "What is the first thing you’ll say to me when the moving truck finally drives away?",
+    "What is a promise you want to make to me about our future right now?",
+    "How do you think our relationship dynamics will shift once distance is no longer a factor?",
+    "What does 'making it' look like to you for us?"
+  ],
+  keepSpark: [
+    "If I were sitting right next to you at this exact moment, what is the first thing you would do?",
+    "What outfit of mine do you absolutely love seeing me wear on FaceTime?",
+    "What is a physical feature of yours that you know I am completely obsessed with?",
+    "Describe our very first kiss from your perspective. What were you thinking right before it happened?",
+    "What is something you find incredibly attractive about me that most people might not notice?",
+    "If you were setting up a surprise virtual date for us tonight, what would the theme and activity be?",
+    "Action: Send me a voice note right now saying exactly what you would whisper in my ear if you were here.",
+    "What is a fantasy or daydream about us that you’ve caught yourself having recently?",
+    "What was the most nervous you've ever been around me?",
+    "If we were stranded in a hotel room together for 24 hours with unlimited room service, how are we passing the time?",
+    "What is the most romantic thing I have ever done for you from a distance?",
+    "What is a specific text message I sent you that gave you butterflies?",
+    "Describe your ideal physical date night from start to finish, assuming budget is no object.",
+    "What is a specific scent (perfume, food, environment) that instantly reminds you of me?",
+    "If we could magically share one physical touch right now—just one—what would it be?",
+    "If you could have a polaroid of any exact moment we’ve shared, which one would it be?",
+    "What is a song lyric that perfectly describes your physical attraction to me?",
+    "What is the most attractive thing I do when I am completely focused or working?",
+    "If I dared you to order my delivery dinner tonight without asking me, what would you get?",
+    "What is a compliment I gave you that you still think about when you look in the mirror?",
+    "What is the exact outfit you want me to be wearing the next time you see me at the airport?",
+    "If we were playing Truth or Dare over video right now, what dare would you give me?",
+    "What is a habit or mannerism of mine that you find unexpectedly charming?",
+    "Describe a moment when you looked at me and thought, 'I am so incredibly lucky.'",
+    "Action: Send a link to a song that makes you want to dance with me in the kitchen.",
+    "What was your very first impression of my voice?",
+    "If we could teleport to a dimly lit speakeasy right now, what drinks are we ordering?",
+    "What is a specific text you’ve drafted to me but deleted because it was too bold?",
+    "What is your favorite way that I show you affection from a distance?",
+    "If I gave you full control over my wardrobe for a week, what’s changing?",
+    "What was the exact moment during our last visit that you didn't want to let go of me?",
+    "What is a nickname you’ve thought about calling me but haven’t yet?",
+    "If we were to recreate our first date virtually tonight, what would we need to do?",
+    "What is a secret talent of yours that you are saving to show me in person?",
+    "What is the most effortlessly sexy thing I do without trying?",
+    "If we could have a movie kiss in the pouring rain, what song is playing in the background?",
+    "What is a look I give you that instantly makes you melt?",
+    "Action: Stare into the camera and hold eye contact with me for exactly 60 seconds in silence.",
+    "What is a memory of us that always makes you smile when you’re out in public?",
+    "If you had to describe my energy as a time of day and weather condition, what is it?",
+    "What is the most romantic location you can imagine us visiting for a weekend getaway?",
+    "When we finally reunite, how long do you think it will take before we stop talking and just hold each other?",
+    "What is a detail about my face that you love studying on our video calls?",
+    "If we were trapped in an elevator for three hours, how would you keep me entertained?",
+    "What is a cheeky or playful habit we have that you hope we never lose?",
+    "What is the most intensely you have ever missed me?",
+    "If I were a character in your favorite book or movie, what kind of dynamic would we have?",
+    "What is the most spontaneous thing you want us to do the next time we are together?",
+    "What is an inside joke that instantly shifts the mood to playful when one of us brings it up?",
+    "Action: Describe exactly what you would do to make me blush right now if you could reach through the screen."
+  ]
+};
+
+  const categoryNames = {
+    stayClose: "Stay Close",
+    ourFuture: "Our Future",
+    keepSpark: "Keep the Spark"
+  };
+
+  const categoryStyles = {
+    stayClose: "card-stay-close",
+    ourFuture: "card-our-future",
+    keepSpark: "card-spark"
+  };
+
+  let localDeck = JSON.parse(JSON.stringify(masterDeck));
+
+  // 4. Listen for changes from Firebase
+  onValue(gameRef, (snapshot) => {
+    const data = snapshot.val();
+    const display = document.getElementById('cardDisplay');
+    const countEl = document.getElementById('remainingCount');
+
+    if (data) {
+      localDeck = data.deckState;
+      if (data.currentCard) {
+        const cat = data.currentCard.category;
+        document.getElementById('cardCategoryTitle').innerText = categoryNames[cat];
+        document.getElementById('cardText').innerText = data.currentCard.text;
+        countEl.innerText = `${localDeck[cat].length} / ${masterDeck[cat].length} cards remaining`;
+
+        display.className = "w-full border-2 rounded-2xl p-10 text-center shadow-lg transition-all duration-300 " + categoryStyles[cat];
+        display.classList.remove('hidden');
+        countEl.classList.remove('hidden');
+      }
+    } else {
+      localDeck = JSON.parse(JSON.stringify(masterDeck));
+      display.classList.add('hidden');
+      countEl.classList.add('hidden');
+    }
+  });
+
+  // 5. Update functions
+  window.drawCard = function(category) {
+    const remaining = localDeck[category].length;
+    if (remaining === 0) {
+      alert("Category empty! Reset the deck.");
+      return;
+    }
+
+    const randomIndex = Math.floor(Math.random() * remaining);
+    const cardText = localDeck[category].splice(randomIndex, 1)[0];
+
+    set(gameRef, {
+      currentCard: { category: category, text: cardText },
+      deckState: localDeck
+    });
+  };
+
+  window.resetDeck = function() {
+    set(gameRef, null);
+  };
+</script>
