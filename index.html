@@ -2,14 +2,23 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
   import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
-  // 1. Fetch the hidden config from our Vercel API
-  const response = await fetch('/api/config');
-  const firebaseConfig = await response.json();
+  let gameRef;
+  try {
+    // 1. Fetch the hidden config from our Vercel API
+    const response = await fetch('/api/config');
+    if (!response.ok) throw new Error(`API Route Failed: ${response.status}`);
+    
+    const firebaseConfig = await response.json();
 
-  // 2. Initialize Firebase
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-  const gameRef = ref(db, 'sharedGame');
+    // 2. Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    gameRef = ref(db, 'sharedGame');
+    
+  } catch (error) {
+    console.error("🔥 Firebase Config Error:", error);
+    alert("Could not load the game database. Check the developer console.");
+  }
 
   // 3. Paste your full masterDeck here
   const masterDeck = {
