@@ -1,73 +1,377 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Long Distance Love</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    body { background-color: #f9fafb; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
-    .card-stay-close { background-color: #fffbeb; border-color: #fbbf24; color: #b45309; }
-    .card-our-future { background-color: #f3e8ff; border-color: #a855f7; color: #6b21a8; }
-    .card-spark { background-color: #fdf2f8; border-color: #f472b6; color: #be185d; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07060f">
+<meta name="description" content="A shared deck of conversation cards for two people across the distance.">
+<title>closer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* ─────────────────────────────  tokens  ───────────────────────────── */
+:root{
+  --bg-0:#07060f;
+  --ink:#f4efe6;
+  --ink-soft:#b6adcf;
+  --ink-faint:#8c84ab;   /* 5.5:1 on the page, 4.6:1 on the glass card */
+
+  --glass-line:rgba(255,255,255,.11);
+  --accent-rgb:168,158,214;
+  --accent:rgb(var(--accent-rgb));
+
+  --radius:28px;
+  --flip:820ms;
+  --ease:cubic-bezier(.62,.02,.34,1);
+
+  --step-0:.6875rem;
+  --step-1:.8125rem;
+  --step-2:.9375rem;
+}
+body[data-cat="stayClose"]{--accent-rgb:242,197,124}
+body[data-cat="ourFuture"]{--accent-rgb:167,139,250}
+body[data-cat="keepSpark"]{--accent-rgb:251,113,133}
+
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;
+  min-height:100svh;
+  color:var(--ink);
+  font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;
+  font-size:16px;
+  line-height:1.5;
+  background:
+    radial-gradient(125% 75% at 50% -12%, #1d1440 0%, transparent 58%),
+    radial-gradient(95% 55% at 12% 104%, #170f2e 0%, transparent 62%),
+    var(--bg-0);
+  background-attachment:fixed;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+button{font:inherit;color:inherit;background:none;border:0;margin:0;cursor:pointer}
+:focus-visible{outline:2px solid rgba(var(--accent-rgb),.9);outline-offset:3px;border-radius:6px}
+.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+/* ─────────────────────────────  night sky  ───────────────────────────── */
+.sky{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.stars{position:absolute;top:0;left:0;width:2px;height:2px;border-radius:50%;background:transparent;
+  animation:drift linear infinite}
+.stars--a{animation-duration:190s}
+.stars--b{animation-duration:130s}
+.stars--c{animation-duration:90s}
+@keyframes drift{from{transform:translateY(0)}to{transform:translateY(-1500px)}}
+
+.aurora{
+  position:absolute;left:50%;top:42%;width:min(820px,135vw);aspect-ratio:1;
+  transform:translate(-50%,-50%);
+  background:radial-gradient(circle,
+    rgba(var(--accent-rgb),.22) 0%,
+    rgba(var(--accent-rgb),.075) 34%,
+    transparent 67%);
+  filter:blur(26px);
+  transition:background 1s ease,opacity 1s ease;
+}
+body[data-cat] .aurora{opacity:1}
+.aurora{opacity:.55}
+
+/* ─────────────────────────────  shell  ───────────────────────────── */
+.shell{
+  position:relative;z-index:1;
+  width:min(560px,100%);
+  margin-inline:auto;
+  min-height:100svh;
+  display:flex;flex-direction:column;
+  gap:clamp(18px,3.4vh,30px);
+  padding:calc(22px + env(safe-area-inset-top)) clamp(18px,5vw,28px) calc(22px + env(safe-area-inset-bottom));
+}
+
+/* ─────────────────────────────  masthead  ───────────────────────────── */
+.masthead{text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px}
+.wordmark{
+  margin:0;
+  font-family:"Cormorant Garamond",Georgia,serif;
+  font-weight:300;font-style:italic;
+  font-size:clamp(2.5rem,11vw,3.4rem);
+  line-height:1;letter-spacing:.06em;
+  color:var(--ink);
+}
+.tagline{
+  margin:0;font-size:var(--step-0);letter-spacing:.22em;text-transform:uppercase;
+  color:var(--ink-faint);
+}
+.status{
+  display:inline-flex;align-items:center;gap:7px;
+  font-size:var(--step-0);letter-spacing:.14em;text-transform:uppercase;
+  color:var(--ink-faint);
+  padding:5px 11px;border-radius:999px;
+  border:1px solid rgba(255,255,255,.07);
+  background:rgba(255,255,255,.028);
+}
+.status__dot{width:6px;height:6px;border-radius:50%;background:var(--ink-faint);flex:none;transition:background .4s}
+.status[data-state="live"]{color:var(--ink-soft)}
+.status[data-state="live"] .status__dot{background:#6ee7a8;box-shadow:0 0 0 3px rgba(110,231,168,.16)}
+.status[data-state="off"]{color:#f0a58c}
+.status[data-state="off"] .status__dot{background:#f0a58c}
+
+/* ─────────────────────────────  the card  ───────────────────────────── */
+/* The card takes whatever height the viewport has left over, so the footer is
+   never pushed off screen on short phones. */
+.stage{flex:1;display:flex;flex-direction:column;justify-content:center;gap:14px;min-height:0}
+.scene{position:relative;perspective:1600px;flex:1;min-height:296px;max-height:540px}
+.card{
+  position:absolute;inset:0;
+  transform-style:preserve-3d;
+  transition:transform var(--flip) var(--ease);
+  will-change:transform;
+}
+.face{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;
+  border-radius:var(--radius);
+  border:1px solid var(--glass-line);
+  background:linear-gradient(158deg,rgba(255,255,255,.085) 0%,rgba(255,255,255,.022) 62%,rgba(255,255,255,.045) 100%);
+  -webkit-backdrop-filter:blur(16px) saturate(130%);
+  backdrop-filter:blur(16px) saturate(130%);
+  box-shadow:
+    0 34px 70px -34px rgba(0,0,0,.9),
+    0 24px 90px -50px rgba(var(--accent-rgb),.85),
+    inset 0 1px 0 rgba(255,255,255,.08);
+  backface-visibility:hidden;-webkit-backface-visibility:hidden;
+  overflow:hidden;
+}
+.face::after{ /* top sheen */
+  content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:radial-gradient(120% 55% at 50% -18%,rgba(var(--accent-rgb),.16),transparent 70%);
+}
+.face--q{transform:rotateY(180deg)}
+
+/* face: cover */
+.face--cover{align-items:center;justify-content:center;gap:22px;padding:32px;text-align:center}
+.crest{width:88px;height:88px;color:rgba(var(--accent-rgb),.85);opacity:.9}
+.cover__hint{margin:0;font-size:var(--step-1);letter-spacing:.2em;text-transform:uppercase;color:var(--ink-faint)}
+.cover__sub{margin:0;font-family:"Cormorant Garamond",Georgia,serif;font-style:italic;font-size:1.25rem;color:var(--ink-soft)}
+
+/* face: question */
+.face--q{padding:clamp(24px,6vw,34px);gap:18px;justify-content:space-between}
+.q__head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.q__cat{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:var(--step-0);letter-spacing:.2em;text-transform:uppercase;
+  color:rgb(var(--accent-rgb));
+}
+.q__cat svg{width:15px;height:15px;flex:none}
+.q__chip{
+  font-size:var(--step-0);letter-spacing:.18em;text-transform:uppercase;
+  padding:3px 9px;border-radius:999px;
+  color:rgb(var(--accent-rgb));
+  border:1px solid rgba(var(--accent-rgb),.4);
+  background:rgba(var(--accent-rgb),.1);
+}
+.q__text{
+  margin:0;flex:1;display:flex;align-items:center;
+  font-family:"Cormorant Garamond",Georgia,serif;
+  font-weight:400;line-height:1.28;letter-spacing:.005em;
+  font-size:clamp(1.6rem,6.6vw,2.15rem);
+  color:var(--ink);
+  text-wrap:balance;
+}
+.q__text[data-len="long"]{font-size:clamp(1.4rem,5.6vw,1.85rem)}
+.q__text[data-len="xlong"]{font-size:clamp(1.22rem,4.8vw,1.6rem);line-height:1.34}
+.q__foot{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  font-size:var(--step-0);letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint)}
+.q__foot::before{content:"";height:1px;flex:1;background:linear-gradient(90deg,rgba(var(--accent-rgb),.45),transparent)}
+
+/* byline under the card */
+.byline{
+  margin:0;text-align:center;min-height:1.2em;
+  font-size:var(--step-0);letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint);
+  transition:opacity .35s ease;
+}
+.byline b{color:var(--ink-soft);font-weight:500}
+
+/* ─────────────────────────────  category picker  ───────────────────────────── */
+.picker{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.pick{
+  position:relative;
+  display:flex;flex-direction:column;align-items:center;gap:7px;
+  min-height:88px;padding:14px 8px 12px;
+  border-radius:20px;
+  border:1px solid rgba(255,255,255,.09);
+  background:rgba(255,255,255,.035);
+  transition:transform .22s var(--ease),background .22s ease,border-color .22s ease,box-shadow .22s ease;
+}
+.pick svg{width:20px;height:20px;color:rgb(var(--accent-rgb));transition:transform .22s var(--ease)}
+.pick__name{font-size:var(--step-0);letter-spacing:.13em;text-transform:uppercase;color:var(--ink-soft);text-align:center;line-height:1.3}
+.pick__count{font-size:var(--step-0);color:var(--ink-faint);letter-spacing:.06em}
+.pick__count b{color:rgba(var(--accent-rgb),.9);font-weight:500;font-variant-numeric:tabular-nums}
+@media (hover:hover){
+  .pick:hover:not(:disabled){
+    transform:translateY(-3px);
+    background:rgba(var(--accent-rgb),.1);
+    border-color:rgba(var(--accent-rgb),.42);
+    box-shadow:0 14px 30px -18px rgba(var(--accent-rgb),.9);
+  }
+  .pick:hover:not(:disabled) svg{transform:scale(1.12)}
+}
+.pick:active:not(:disabled){transform:translateY(-1px) scale(.975)}
+.pick[aria-pressed="true"]{background:rgba(var(--accent-rgb),.13);border-color:rgba(var(--accent-rgb),.5)}
+.pick:disabled{opacity:.34;cursor:not-allowed}
+.busy{pointer-events:none}
+.busy .pick{opacity:.55}
+
+/* ─────────────────────────────  footer  ───────────────────────────── */
+.footer{display:flex;flex-direction:column;gap:12px;align-items:center}
+.rail{width:100%;height:2px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden}
+.rail__fill{height:100%;width:0;border-radius:2px;
+  background:linear-gradient(90deg,rgba(242,197,124,.9),rgba(167,139,250,.9),rgba(251,113,133,.9));
+  transition:width .6s var(--ease)}
+.footer__row{display:flex;align-items:center;justify-content:space-between;width:100%;gap:14px;
+  font-size:var(--step-0);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint)}
+.footer__row b{color:var(--ink-soft);font-weight:500;font-variant-numeric:tabular-nums}
+.linkbtn{padding:6px 2px;color:var(--ink-faint);letter-spacing:.14em;text-transform:uppercase;font-size:var(--step-0);
+  border-bottom:1px solid rgba(255,255,255,.14);transition:color .2s,border-color .2s}
+.linkbtn:hover{color:var(--ink);border-color:rgba(var(--accent-rgb),.7)}
+
+/* ─────────────────────────────  sheet + toast  ───────────────────────────── */
+.sheet{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:22px;
+  background:rgba(5,4,12,.72);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+  opacity:0;transition:opacity .25s ease}
+.sheet[hidden]{display:none}
+.sheet.is-open{opacity:1}
+.sheet__panel{
+  width:min(380px,100%);padding:28px 26px 22px;border-radius:26px;text-align:center;
+  border:1px solid var(--glass-line);
+  background:linear-gradient(158deg,rgba(30,24,58,.96),rgba(14,11,32,.98));
+  box-shadow:0 40px 80px -36px rgba(0,0,0,.9);
+  transform:translateY(14px) scale(.97);transition:transform .3s var(--ease)}
+.sheet.is-open .sheet__panel{transform:none}
+.sheet__title{margin:0 0 8px;font-family:"Cormorant Garamond",Georgia,serif;font-weight:400;font-size:1.7rem}
+.sheet__body{margin:0 0 22px;font-size:var(--step-2);color:var(--ink-soft);line-height:1.55}
+.sheet__acts{display:flex;flex-direction:column;gap:9px}
+.btn{min-height:46px;border-radius:14px;font-size:var(--step-1);letter-spacing:.14em;text-transform:uppercase;
+  border:1px solid transparent;transition:background .2s,border-color .2s,color .2s}
+.btn--go{background:rgba(251,113,133,.16);border-color:rgba(251,113,133,.45);color:#ffc9d1}
+.btn--go:hover{background:rgba(251,113,133,.26)}
+.btn--off{color:var(--ink-faint)}
+.btn--off:hover{color:var(--ink)}
+
+.toast{
+  position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));z-index:30;
+  transform:translate(-50%,14px);
+  max-width:min(420px,calc(100vw - 32px));
+  padding:11px 18px;border-radius:999px;
+  font-size:var(--step-1);color:var(--ink);text-align:center;
+  border:1px solid var(--glass-line);
+  background:rgba(26,20,50,.94);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  box-shadow:0 20px 40px -22px rgba(0,0,0,.9);
+  opacity:0;pointer-events:none;transition:opacity .3s ease,transform .3s var(--ease)}
+.toast.is-on{opacity:1;transform:translate(-50%,0)}
+
+@media (max-height:720px){
+  .shell{gap:13px}
+  .scene{min-height:224px}
+  .wordmark{font-size:clamp(2rem,8vw,2.5rem)}
+  .pick{min-height:74px;padding:11px 8px 10px}
+}
+
+@media (min-width:600px){
+  .pick{min-height:96px}
+  .pick__name{font-size:var(--step-1)}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .stars{animation:none}
+  .card{transition:none!important}
+  .face{transition:opacity .2s linear}
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important}
+}
+</style>
 </head>
-<body class="flex flex-col items-center min-h-screen py-12 px-4 text-gray-800">
+<body>
 
-  <div class="max-w-2xl w-full flex flex-col items-center">
-    <h1 class="text-4xl font-bold text-indigo-600 mb-2">Long Distance Love 💌</h1>
-    <p class="text-gray-500 mb-8 text-center">Pick a category and draw a card to start the conversation.</p>
+<div class="sky" aria-hidden="true">
+  <div class="stars stars--a" id="starsA"></div>
+  <div class="stars stars--b" id="starsB"></div>
+  <div class="stars stars--c" id="starsC"></div>
+  <div class="aurora"></div>
+</div>
 
-    <!-- Category Buttons -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 w-full mb-8">
-      <button onclick="drawCard('stayClose')" class="py-3 px-4 bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-semibold rounded-lg shadow transition">
-        💛 Stay Close
-      </button>
-      <button onclick="drawCard('ourFuture')" class="py-3 px-4 bg-purple-500 hover:bg-purple-600 text-white font-semibold rounded-lg shadow transition">
-        💜 Our Future
-      </button>
-      <button onclick="drawCard('keepSpark')" class="py-3 px-4 bg-pink-500 hover:bg-pink-600 text-white font-semibold rounded-lg shadow transition">
-        💖 Keep the Spark
-      </button>
+<div class="shell">
+
+  <header class="masthead">
+    <div class="status" id="status" data-state="wait">
+      <span class="status__dot"></span><span id="statusText">Connecting</span>
     </div>
+    <h1 class="wordmark">closer</h1>
+    <p class="tagline">A deck for two</p>
+  </header>
 
-    <!-- The Card UI -->
-    <div id="cardDisplay" class="hidden w-full border-2 rounded-2xl p-10 text-center shadow-lg transition-all duration-300">
-      <h4 id="cardCategoryTitle" class="text-lg font-bold uppercase tracking-wider mb-4"></h4>
-      <h2 id="cardText" class="text-2xl font-medium leading-relaxed text-gray-900"></h2>
+  <main class="stage">
+    <div class="scene">
+      <div class="card" id="card">
+
+        <section class="face face--cover" id="faceCover">
+          <svg class="crest" viewBox="0 0 96 96" fill="none" stroke="currentColor" stroke-width="1.1" aria-hidden="true">
+            <circle cx="38" cy="48" r="20"/>
+            <circle cx="58" cy="48" r="20"/>
+            <circle cx="48" cy="48" r="31" stroke-dasharray="2 6" opacity=".55"/>
+            <circle cx="48" cy="17" r="1.6" fill="currentColor" stroke="none"/>
+            <circle cx="79" cy="48" r="1.2" fill="currentColor" stroke="none"/>
+            <circle cx="48" cy="79" r="1.6" fill="currentColor" stroke="none"/>
+            <circle cx="17" cy="48" r="1.2" fill="currentColor" stroke="none"/>
+          </svg>
+          <p class="cover__sub" id="coverSub">The deck is face down.</p>
+          <p class="cover__hint" id="coverHint">Choose a category</p>
+        </section>
+
+        <section class="face face--q" id="faceQ" aria-hidden="true">
+          <div class="q__head">
+            <span class="q__cat"><span id="qIcon"></span><span id="qCat"></span></span>
+            <span class="q__chip" id="qChip" hidden>Dare</span>
+          </div>
+          <p class="q__text" id="qText"></p>
+          <div class="q__foot"><span id="qLeft"></span></div>
+        </section>
+
+      </div>
     </div>
-    
-    <p id="remainingCount" class="text-sm text-gray-400 mt-4 hidden"></p>
+    <p class="byline" id="byline"></p>
+    <p class="sr" role="status" aria-live="polite" id="live"></p>
+  </main>
 
-    <button onclick="resetDeck()" class="mt-12 text-sm text-gray-400 hover:text-gray-700 underline underline-offset-4">
-      🔄 Reset Entire Deck
-    </button>
+  <nav class="picker" id="picker" aria-label="Card categories"></nav>
+
+  <footer class="footer">
+    <div class="rail"><div class="rail__fill" id="railFill"></div></div>
+    <div class="footer__row">
+      <span><b id="drawnTotal">0</b> of 150 drawn</span>
+      <button class="linkbtn" id="resetBtn" type="button">Reshuffle</button>
+    </div>
+  </footer>
+
+</div>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="sheet__panel" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" aria-describedby="sheetBody">
+    <h2 class="sheet__title" id="sheetTitle">Reshuffle everything?</h2>
+    <p class="sheet__body" id="sheetBody">All 150 cards go back into the deck for both of you, and the card on the table is cleared.</p>
+    <div class="sheet__acts">
+      <button class="btn btn--go" id="sheetGo" type="button">Yes, reshuffle</button>
+      <button class="btn btn--off" id="sheetNo" type="button">Never mind</button>
+    </div>
   </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-    import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+    import { getDatabase, ref, set, onValue, runTransaction } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
-    let gameRef;
-
-    try {
-      // 1. Fetch the hidden config from our Vercel API
-      const response = await fetch('/api/config');
-      if (!response.ok) throw new Error(`API Route Failed: ${response.status}`);
-      
-      const firebaseConfig = await response.json();
-
-      // 2. Initialize Firebase
-      const app = initializeApp(firebaseConfig);
-      const db = getDatabase(app);
-      gameRef = ref(db, 'sharedGame');
-      
-    } catch (error) {
-      console.error("🔥 Firebase Config Error:", error);
-      alert("Could not load the game database. Check the developer console.");
-    }
-
-    // 3. The Master Deck
+    // 1. The Master Deck
     const masterDeck = {
       stayClose: [
         "What was the exact moment you realized you were falling for me?",
@@ -227,74 +531,318 @@
       ]
     };
 
-    const categoryNames = {
-      stayClose: "Stay Close",
-      ourFuture: "Our Future",
-      keepSpark: "Keep the Spark"
+    // 2. Category metadata — name, accent, icon
+    const ICONS = {
+      stayClose: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="5.4" cy="12" r="2.6"/><circle cx="18.6" cy="12" r="2.6"/><path d="M8.6 12h6.8" stroke-dasharray="2 2.6"/></svg>',
+      ourFuture: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M3 18.6h18"/><path d="M6.8 18.6a5.2 5.2 0 0 1 10.4 0"/><path d="M12 4.2v2.2M5.6 7.1l1.5 1.5M18.4 7.1l-1.5 1.5"/></svg>',
+      keepSpark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" aria-hidden="true"><path d="M14 2.6c.85 5.1 2.3 6.55 7.4 7.4-5.1.85-6.55 2.3-7.4 7.4-.85-5.1-2.3-6.55-7.4-7.4 5.1-.85 6.55-2.3 7.4-7.4Z"/><path d="M6 14.4c.36 2.1.96 2.7 3.06 3.06-2.1.36-2.7.96-3.06 3.06-.36-2.1-.96-2.7-3.06-3.06 2.1-.36 2.7-.96 3.06-3.06Z"/></svg>'
     };
 
-    const categoryStyles = {
-      stayClose: "card-stay-close",
-      ourFuture: "card-our-future",
-      keepSpark: "card-spark"
+    const CATEGORIES = [
+      { id: 'stayClose', name: 'Stay Close',     rgb: '242,197,124' },
+      { id: 'ourFuture', name: 'Our Future',     rgb: '167,139,250' },
+      { id: 'keepSpark', name: 'Keep the Spark', rgb: '251,113,133' }
+    ];
+    const CAT = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
+    const TOTAL = CATEGORIES.reduce((n, c) => n + masterDeck[c.id].length, 0);
+
+    // 3. Elements
+    const $ = id => document.getElementById(id);
+    const el = {
+      card: $('card'), faceCover: $('faceCover'), faceQ: $('faceQ'),
+      qIcon: $('qIcon'), qCat: $('qCat'), qChip: $('qChip'), qText: $('qText'), qLeft: $('qLeft'),
+      coverSub: $('coverSub'), coverHint: $('coverHint'),
+      byline: $('byline'), live: $('live'), picker: $('picker'),
+      railFill: $('railFill'), drawnTotal: $('drawnTotal'),
+      status: $('status'), statusText: $('statusText'),
+      resetBtn: $('resetBtn'), sheet: $('sheet'), sheetGo: $('sheetGo'), sheetNo: $('sheetNo'),
+      toast: $('toast')
     };
 
-    let localDeck = JSON.parse(JSON.stringify(masterDeck));
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    // 4. Listen for changes from Firebase
-    if (gameRef) {
-      onValue(gameRef, (snapshot) => {
-        const data = snapshot.val();
-        
-        const display = document.getElementById('cardDisplay');
-        const countEl = document.getElementById('remainingCount');
-        const catTitleEl = document.getElementById('cardCategoryTitle');
-        const textEl = document.getElementById('cardText');
+    // A stable per-device id, so each of you can see who drew the card.
+    let myId = localStorage.getItem('closer:me');
+    if (!myId) { myId = Math.random().toString(36).slice(2, 10); localStorage.setItem('closer:me', myId); }
 
-        if (data) {
-          localDeck = data.deckState;
-          
-          if (display && countEl && catTitleEl && textEl && data.currentCard) {
-            const cat = data.currentCard.category;
-            
-            catTitleEl.innerText = categoryNames[cat];
-            textEl.innerText = data.currentCard.text;
-            countEl.innerText = `${localDeck[cat].length} / ${masterDeck[cat].length} cards remaining`;
+    // 4. Night sky
+    function seedStars(node, count, spread, blur, alphaMax) {
+      const w = Math.max(window.innerWidth, 1440), h = 1500, out = [];
+      for (let i = 0; i < count; i++) {
+        const x = Math.round(Math.random() * w), y = Math.round(Math.random() * h);
+        const a = (Math.random() * alphaMax + 0.2).toFixed(2);
+        out.push(`${x}px ${y}px ${blur} ${spread} rgba(226,224,255,${a})`);
+        out.push(`${x}px ${y + h}px ${blur} ${spread} rgba(226,224,255,${a})`);
+      }
+      node.style.boxShadow = out.join(',');
+    }
+    function paintSky() {
+      const density = Math.max(window.innerWidth, 1440) / 1440;
+      seedStars($('starsA'), Math.round(190 * density), '-0.7px', '0',   0.45);
+      seedStars($('starsB'), Math.round(90 * density),  '-0.3px', '0',   0.55);
+      seedStars($('starsC'), Math.round(26 * density),  '0',      '3px', 0.6);
+    }
+    paintSky();
+    let skyTimer;
+    addEventListener('resize', () => { clearTimeout(skyTimer); skyTimer = setTimeout(paintSky, 400); });
 
-            display.className = "w-full border-2 rounded-2xl p-10 text-center shadow-lg transition-all duration-300 " + categoryStyles[cat];
-            display.classList.remove('hidden');
-            countEl.classList.remove('hidden');
-          }
-        } else {
-          localDeck = JSON.parse(JSON.stringify(masterDeck));
-          display?.classList.add('hidden');
-          countEl?.classList.add('hidden');
-        }
-      });
+    // 5. The flip
+    let rotation = 0;          // multiples of 180deg
+    let swapTimer = null;
+    const showingQuestion = () => Math.abs((rotation / 180) % 2) === 1;
+
+    function turn(target, fill) {
+      const same = (target === 'q') === showingQuestion();
+      if (same && target === 'cover') { fill(); return; }
+
+      const delta = same ? 360 : 180;
+      const dur = reduced ? 0 : (delta === 360 ? 1000 : 720);
+
+      // A 180deg turn lands on the face that is currently hidden, so it is safe to
+      // fill it up front. A 360deg turn re-uses the visible face, so the swap has
+      // to wait for the halfway point, where the card is edge-on and invisible.
+      if (!same) fill();
+
+      rotation += delta;
+      el.card.style.transitionDuration = dur + 'ms';
+      el.card.style.transform = `rotateY(${rotation}deg)`;
+      el.faceQ.setAttribute('aria-hidden', target === 'q' ? 'false' : 'true');
+      el.faceCover.setAttribute('aria-hidden', target === 'q' ? 'true' : 'false');
+
+      clearTimeout(swapTimer);
+      if (same) swapTimer = setTimeout(fill, dur / 2);
     }
 
-    // 5. Global Functions
-    window.drawCard = function(category) {
-      if (!gameRef) return alert("Database not connected.");
-      
-      const remaining = localDeck[category].length;
-      if (remaining === 0) {
-        alert("Category empty! Reset the deck.");
+    // 6. Rendering
+    function normalize(deckState) {
+      // Firebase drops empty arrays entirely, so a missing suit means "all drawn".
+      const out = {};
+      for (const c of CATEGORIES) {
+        out[c.id] = deckState
+          ? (Array.isArray(deckState[c.id]) ? deckState[c.id].filter(t => typeof t === 'string') : [])
+          : masterDeck[c.id].slice();
+      }
+      return out;
+    }
+
+    function relTime(ts) {
+      if (!ts) return '';
+      const m = Math.floor((Date.now() - ts) / 60000);
+      if (m < 1) return 'just now';
+      if (m < 60) return `${m} min ago`;
+      const h = Math.floor(m / 60);
+      if (h < 24) return `${h} hr ago`;
+      const d = Math.floor(h / 24);
+      return d === 1 ? 'yesterday' : `${d} days ago`;
+    }
+
+    function fillQuestion(card, deck) {
+      const meta = CAT[card.category];
+      document.body.dataset.cat = card.category;
+      el.qIcon.innerHTML = ICONS[card.category];
+      el.qCat.textContent = meta.name;
+
+      let text = String(card.text);
+      const isDare = /^action:\s*/i.test(text);
+      el.qChip.hidden = !isDare;
+      if (isDare) text = text.replace(/^action:\s*/i, '');
+
+      el.qText.textContent = text;
+      el.qText.dataset.len = text.length > 118 ? 'xlong' : text.length > 78 ? 'long' : 'short';
+
+      const left = deck[card.category].length;
+      el.qLeft.textContent = left === 0 ? 'last of this suit' : `${left} left in this suit`;
+    }
+
+    function fillCover() {
+      document.body.removeAttribute('data-cat');
+      el.coverSub.textContent = 'The deck is face down.';
+      el.coverHint.textContent = 'Choose a category';
+    }
+
+    function renderCounts(deck) {
+      let left = 0;
+      for (const c of CATEGORIES) {
+        const n = deck[c.id].length;
+        left += n;
+        const btn = el.picker.querySelector(`[data-cat="${c.id}"]`);
+        btn.querySelector('.pick__count').innerHTML = `<b>${n}</b> left`;
+        btn.disabled = n === 0;
+        btn.setAttribute('aria-label', `${c.name}, ${n} card${n === 1 ? '' : 's'} left`);
+      }
+      const drawn = TOTAL - left;
+      el.drawnTotal.textContent = drawn;
+      el.railFill.style.width = (drawn / TOTAL * 100) + '%';
+    }
+
+    let localDeck = normalize(null);
+    let lastKey = null;
+    let lastCard = null;
+
+    function applyState(data) {
+      const deck = normalize(data && data.deckState);
+      localDeck = deck;
+      renderCounts(deck);
+
+      const card = data && data.currentCard;
+      if (!card || !card.text) {
+        if (lastKey !== null) { lastKey = null; turn('cover', fillCover); }
+        else fillCover();
+        el.byline.textContent = '';
+        for (const b of el.picker.children) b.setAttribute('aria-pressed', 'false');
         return;
       }
 
-      const randomIndex = Math.floor(Math.random() * remaining);
-      const cardText = localDeck[category].splice(randomIndex, 1)[0];
+      const key = `${card.category}|${card.text}|${card.at || ''}`;
+      if (key !== lastKey) {
+        lastKey = key;
+        turn('q', () => fillQuestion(card, deck));
+        el.live.textContent = `${CAT[card.category].name}: ${card.text}`;
+      } else {
+        fillQuestion(card, deck); // counts changed under an unchanged card
+      }
 
-      set(gameRef, {
-        currentCard: { category: category, text: cardText },
-        deckState: localDeck
+      for (const b of el.picker.children) {
+        b.setAttribute('aria-pressed', String(b.dataset.cat === card.category));
+      }
+      el.byline.innerHTML = card.by
+        ? `<b>${card.by === myId ? 'You' : 'They'}</b> drew this &middot; ${relTime(card.at)}`
+        : '';
+      lastCard = card;
+    }
+
+    setInterval(() => {
+      if (lastCard && lastCard.by) {
+        el.byline.innerHTML = `<b>${lastCard.by === myId ? 'You' : 'They'}</b> drew this &middot; ${relTime(lastCard.at)}`;
+      }
+    }, 30000);
+
+    // 7. Toast + confirmation sheet
+    let toastTimer;
+    function toast(msg) {
+      el.toast.textContent = msg;
+      el.toast.classList.add('is-on');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.toast.classList.remove('is-on'), 4200);
+    }
+
+    let sheetReturn = null;
+    function openSheet() {
+      sheetReturn = document.activeElement;
+      el.sheet.hidden = false;
+      requestAnimationFrame(() => el.sheet.classList.add('is-open'));
+      el.sheetGo.focus();
+    }
+    function closeSheet() {
+      el.sheet.classList.remove('is-open');
+      setTimeout(() => { el.sheet.hidden = true; }, 250);
+      if (sheetReturn) sheetReturn.focus();
+    }
+    el.resetBtn.addEventListener('click', openSheet);
+    el.sheetNo.addEventListener('click', closeSheet);
+    el.sheet.addEventListener('click', e => { if (e.target === el.sheet) closeSheet(); });
+    addEventListener('keydown', e => {
+      if (e.key === 'Escape' && !el.sheet.hidden) closeSheet();
+      if (el.sheet.hidden && !e.metaKey && !e.ctrlKey && e.key.length === 1 && '123'.includes(e.key)) {
+        const c = CATEGORIES[Number(e.key) - 1];
+        if (c) draw(c.id);
+      }
+    });
+    el.sheetGo.addEventListener('click', () => { closeSheet(); reshuffle(); });
+
+    // 8. Picker
+    for (const c of CATEGORIES) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'pick';
+      btn.dataset.cat = c.id;
+      btn.style.setProperty('--accent-rgb', c.rgb);
+      btn.setAttribute('aria-pressed', 'false');
+      btn.innerHTML = `${ICONS[c.id]}<span class="pick__name">${c.name}</span><span class="pick__count"><b>${masterDeck[c.id].length}</b> left</span>`;
+      btn.addEventListener('click', () => draw(c.id));
+      el.picker.appendChild(btn);
+    }
+
+    // 9. Firebase
+    let gameRef = null, db = null;
+    try {
+      const res = await fetch('/api/config');
+      if (!res.ok) throw new Error('Config route returned ' + res.status);
+      const cfg = await res.json();
+      if (!cfg || !cfg.databaseURL) throw new Error('Config is missing databaseURL');
+      db = getDatabase(initializeApp(cfg));
+      gameRef = ref(db, 'sharedGame');
+    } catch (err) {
+      console.error('Firebase config unavailable:', err);
+    }
+
+    function setStatus(state, text) {
+      el.status.dataset.state = state;
+      el.statusText.textContent = text;
+    }
+
+    if (gameRef) {
+      onValue(ref(db, '.info/connected'), snap => {
+        setStatus(snap.val() ? 'live' : 'wait', snap.val() ? 'In sync' : 'Reconnecting');
       });
-    };
+      onValue(gameRef, snap => applyState(snap.val()), err => {
+        console.error(err);
+        setStatus('off', 'Sync error');
+        toast('Lost the connection to your shared deck.');
+      });
+    } else {
+      setStatus('off', 'Solo');
+      applyState(null);
+      toast('Playing solo — this device is not synced to your partner.');
+    }
 
-    window.resetDeck = function() {
-      if (gameRef) set(gameRef, null);
-    };
+    // 10. Actions
+    let busy = false;
+
+    async function draw(category) {
+      if (busy) return;
+      if (localDeck[category].length === 0) {
+        toast(`${CAT[category].name} is empty. Reshuffle to bring it back.`);
+        return;
+      }
+
+      busy = true;
+      document.body.classList.add('busy');
+      try {
+        if (!gameRef) {
+          const pool = localDeck[category];
+          const text = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
+          applyState({ currentCard: { category, text, by: myId, at: Date.now() }, deckState: localDeck });
+          return;
+        }
+
+        // A transaction, so two simultaneous draws can't clobber each other's deck.
+        const result = await runTransaction(gameRef, current => {
+          const deck = normalize(current && current.deckState);
+          const pool = deck[category];
+          if (!pool.length) return current === null ? undefined : current;
+          const text = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
+          return { currentCard: { category, text, by: myId, at: Date.now() }, deckState: deck };
+        }, { applyLocally: false });
+
+        if (!result.committed) toast('That suit just ran out. Try another.');
+      } catch (err) {
+        console.error(err);
+        toast('Could not reach the deck. Check your connection.');
+      } finally {
+        busy = false;
+        document.body.classList.remove('busy');
+      }
+    }
+
+    function reshuffle() {
+      if (gameRef) {
+        set(gameRef, null).catch(err => { console.error(err); toast('Could not reshuffle right now.'); });
+      } else {
+        applyState(null);
+      }
+      toast('All 150 cards are back in the deck.');
+    }
   </script>
 </body>
 </html>
