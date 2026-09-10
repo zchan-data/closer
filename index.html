@@ -187,28 +187,38 @@
 
   // 4. Listen for changes from Firebase
   onValue(gameRef, (snapshot) => {
-    const data = snapshot.val();
-    const display = document.getElementById('cardDisplay');
-    const countEl = document.getElementById('remainingCount');
+      const data = snapshot.val();
+      
+      // 1. Grab the elements
+      const display = document.getElementById('cardDisplay');
+      const countEl = document.getElementById('remainingCount');
+      const catTitleEl = document.getElementById('cardCategoryTitle');
+      const textEl = document.getElementById('cardText');
 
-    if (data) {
-      localDeck = data.deckState;
-      if (data.currentCard) {
-        const cat = data.currentCard.category;
-        document.getElementById('cardCategoryTitle').innerText = categoryNames[cat];
-        document.getElementById('cardText').innerText = data.currentCard.text;
-        countEl.innerText = `${localDeck[cat].length} / ${masterDeck[cat].length} cards remaining`;
+      if (data) {
+        localDeck = data.deckState;
+        
+        // 2. Only update the UI if the elements actually exist in the DOM
+        if (display && countEl && catTitleEl && textEl && data.currentCard) {
+          const cat = data.currentCard.category;
+          
+          catTitleEl.innerText = categoryNames[cat];
+          textEl.innerText = data.currentCard.text;
+          countEl.innerText = `${localDeck[cat].length} / ${masterDeck[cat].length} cards remaining`;
 
-        display.className = "w-full border-2 rounded-2xl p-10 text-center shadow-lg transition-all duration-300 " + categoryStyles[cat];
-        display.classList.remove('hidden');
-        countEl.classList.remove('hidden');
+          display.className = "w-full border-2 rounded-2xl p-10 text-center shadow-lg transition-all duration-300 " + categoryStyles[cat];
+          display.classList.remove('hidden');
+          countEl.classList.remove('hidden');
+        }
+      } else {
+        // Deck was reset or is empty
+        localDeck = JSON.parse(JSON.stringify(masterDeck));
+        
+        // 3. Use optional chaining (?.) so it safely ignores the command if null
+        display?.classList.add('hidden');
+        countEl?.classList.add('hidden');
       }
-    } else {
-      localDeck = JSON.parse(JSON.stringify(masterDeck));
-      display.classList.add('hidden');
-      countEl.classList.add('hidden');
-    }
-  });
+    });
 
   // 5. Update functions
   window.drawCard = function(category) {
