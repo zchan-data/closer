@@ -21,6 +21,11 @@
   --accent-rgb:168,158,214;
   --accent:rgb(var(--accent-rgb));
 
+  /* the three suit accents of the active deck, in picker order */
+  --rail-a:242,197,124;
+  --rail-b:167,139,250;
+  --rail-c:251,113,133;
+
   --radius:28px;
   --flip:820ms;
   --ease:cubic-bezier(.62,.02,.34,1);
@@ -29,9 +34,9 @@
   --step-1:.8125rem;
   --step-2:.9375rem;
 }
-body[data-cat="stayClose"]{--accent-rgb:242,197,124}
-body[data-cat="ourFuture"]{--accent-rgb:167,139,250}
-body[data-cat="keepSpark"]{--accent-rgb:251,113,133}
+/* --accent-rgb and the rail vars are set inline on <body> from the active deck,
+   so a new deck or suit needs no rule here. data-cat survives only as the hook
+   the aurora uses to tell "a card is face up" from "the deck is face down". */
 
 *,*::before,*::after{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
@@ -114,6 +119,30 @@ body[data-cat] .aurora{opacity:1}
 .status[data-state="live"] .status__dot{background:#6ee7a8;box-shadow:0 0 0 3px rgba(110,231,168,.16)}
 .status[data-state="off"]{color:#f0a58c}
 .status[data-state="off"] .status__dot{background:#f0a58c}
+
+/* ─────────────────────────────  deck switch  ───────────────────────────── */
+.deckbar{
+  display:inline-flex;gap:4px;margin-top:2px;
+  padding:4px;border-radius:999px;
+  border:1px solid rgba(255,255,255,.07);
+  background:rgba(255,255,255,.028);
+}
+.deckbtn{
+  display:inline-flex;align-items:baseline;gap:7px;
+  padding:7px 15px;border-radius:999px;
+  font-size:var(--step-0);letter-spacing:.16em;text-transform:uppercase;
+  color:var(--ink-faint);
+  transition:color .22s ease,background .22s ease,box-shadow .22s ease;
+}
+.deckbtn__n{font-variant-numeric:tabular-nums;letter-spacing:.06em;opacity:.62}
+.deckbtn[aria-pressed="true"]{
+  color:var(--ink);
+  background:rgba(var(--accent-rgb),.14);
+  box-shadow:inset 0 0 0 1px rgba(var(--accent-rgb),.34);
+}
+@media (hover:hover){
+  .deckbtn:hover:not([aria-pressed="true"]){color:var(--ink-soft);background:rgba(255,255,255,.04)}
+}
 
 /* ─────────────────────────────  the card  ───────────────────────────── */
 /* The card takes whatever height the viewport has left over, so the footer is
@@ -225,8 +254,8 @@ body[data-cat] .aurora{opacity:1}
 .footer{display:flex;flex-direction:column;gap:12px;align-items:center}
 .rail{width:100%;height:2px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden}
 .rail__fill{height:100%;width:0;border-radius:2px;
-  background:linear-gradient(90deg,rgba(242,197,124,.9),rgba(167,139,250,.9),rgba(251,113,133,.9));
-  transition:width .6s var(--ease)}
+  background:linear-gradient(90deg,rgba(var(--rail-a),.9),rgba(var(--rail-b),.9),rgba(var(--rail-c),.9));
+  transition:width .6s var(--ease),background .5s ease}
 .footer__row{display:flex;align-items:center;justify-content:space-between;width:100%;gap:14px;
   font-size:var(--step-0);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint)}
 .footer__row b{color:var(--ink-soft);font-weight:500;font-variant-numeric:tabular-nums}
@@ -275,6 +304,7 @@ body[data-cat] .aurora{opacity:1}
   .scene{min-height:224px}
   .wordmark{font-size:clamp(2rem,8vw,2.5rem)}
   .pick{min-height:74px;padding:11px 8px 10px}
+  .deckbtn{padding:5px 12px}
 }
 
 @media (min-width:600px){
@@ -307,6 +337,7 @@ body[data-cat] .aurora{opacity:1}
     </div>
     <h1 class="wordmark">closer</h1>
     <p class="tagline">A deck for two</p>
+    <div class="deckbar" id="deckbar" role="group" aria-label="Deck"></div>
   </header>
 
   <main class="stage">
@@ -347,7 +378,7 @@ body[data-cat] .aurora{opacity:1}
   <footer class="footer">
     <div class="rail"><div class="rail__fill" id="railFill"></div></div>
     <div class="footer__row">
-      <span><b id="drawnTotal">0</b> of 150 drawn</span>
+      <span><b id="drawnTotal">0</b> of <span id="totalCount">150</span> drawn</span>
       <button class="linkbtn" id="resetBtn" type="button">Reshuffle</button>
     </div>
   </footer>
@@ -357,7 +388,7 @@ body[data-cat] .aurora{opacity:1}
 <div class="sheet" id="sheet" hidden>
   <div class="sheet__panel" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" aria-describedby="sheetBody">
     <h2 class="sheet__title" id="sheetTitle">Reshuffle everything?</h2>
-    <p class="sheet__body" id="sheetBody">All 150 cards go back into the deck for both of you, and the card on the table is cleared.</p>
+    <p class="sheet__body" id="sheetBody"></p>
     <div class="sheet__acts">
       <button class="btn btn--go" id="sheetGo" type="button">Yes, reshuffle</button>
       <button class="btn btn--off" id="sheetNo" type="button">Never mind</button>
@@ -371,9 +402,15 @@ body[data-cat] .aurora{opacity:1}
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
     import { getDatabase, ref, set, onValue, runTransaction } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
-    // 1. The Master Deck
-    const masterDeck = {
-      stayClose: [
+    // 1. The decks. A suit owns its own name, accent, icon and cards, and a deck
+    //    owns its suits, so adding either is a data change and nothing else.
+    const DECKS = [{
+      id: 'closer', name: 'Closer', rgb: '168,158,214',
+      rail: ['242,197,124', '167,139,250', '251,113,133'],
+      suits: [
+      { id: 'stayClose', name: 'Stay Close', rgb: '242,197,124',
+        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="5.4" cy="12" r="2.6"/><circle cx="18.6" cy="12" r="2.6"/><path d="M8.6 12h6.8" stroke-dasharray="2 2.6"/></svg>',
+        cards: [
         "What was the exact moment you realized you were falling for me?",
         "When you're having a stressful day, what’s the best way for me to comfort you from afar?",
         "What is a small, everyday habit of mine that you’ve noticed from our video calls?",
@@ -424,8 +461,10 @@ body[data-cat] .aurora{opacity:1}
         "What is a moment where you felt entirely, completely proud of me?",
         "How do we complement each other’s weaknesses?",
         "What is the single biggest reason you know the distance is worth it?"
-      ],
-      ourFuture: [
+      ]},
+      { id: 'ourFuture', name: 'Our Future', rgb: '167,139,250',
+        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M3 18.6h18"/><path d="M6.8 18.6a5.2 5.2 0 0 1 10.4 0"/><path d="M12 4.2v2.2M5.6 7.1l1.5 1.5M18.4 7.1l-1.5 1.5"/></svg>',
+        cards: [
         "When we finally live in the same city, what will our first lazy Sunday morning look like?",
         "What is a local spot in your current city that you can’t wait to show me in person?",
         "How do you picture our home decorated when we eventually move in together?",
@@ -476,8 +515,10 @@ body[data-cat] .aurora{opacity:1}
         "What is a promise you want to make to me about our future right now?",
         "How do you think our relationship dynamics will shift once distance is no longer a factor?",
         "What does 'making it' look like to you for us?"
-      ],
-      keepSpark: [
+      ]},
+      { id: 'keepSpark', name: 'Keep the Spark', rgb: '251,113,133',
+        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" aria-hidden="true"><path d="M14 2.6c.85 5.1 2.3 6.55 7.4 7.4-5.1.85-6.55 2.3-7.4 7.4-.85-5.1-2.3-6.55-7.4-7.4 5.1-.85 6.55-2.3 7.4-7.4Z"/><path d="M6 14.4c.36 2.1.96 2.7 3.06 3.06-2.1.36-2.7.96-3.06 3.06-.36-2.1-.96-2.7-3.06-3.06 2.1-.36 2.7-.96 3.06-3.06Z"/></svg>',
+        cards: [
         "If I were sitting right next to you at this exact moment, what is the first thing you would do?",
         "What outfit of mine do you absolutely love seeing me wear on FaceTime?",
         "What is a physical feature of yours that you know I am completely obsessed with?",
@@ -528,23 +569,183 @@ body[data-cat] .aurora{opacity:1}
         "What is the most spontaneous thing you want us to do the next time we are together?",
         "What is an inside joke that instantly shifts the mood to playful when one of us brings it up?",
         "Action: Describe exactly what you would do to make me blush right now if you could reach through the screen."
+      ]}
       ]
-    };
+    }, {
+      id: 'braver', name: 'Braver', rgb: '140,178,222',
+      rail: ['94,234,212', '96,165,250', '196,181,253'],
+      suits: [
+      { id: 'beforeMe', name: 'Before Me', rgb: '94,234,212',
+        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.2 12a8.8 8.8 0 1 0 8.8-8.8 9.5 9.5 0 0 0-6.6 2.68L3.2 8.1"/><path d="M3.2 3.2v4.9h4.9"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/></svg>',
+        cards: [
+        "What is a version of yourself from five years ago that you are glad I never met?",
+        "Which room of your childhood home can you still walk through with your eyes closed?",
+        "What did your parents teach you about love without ever saying it out loud?",
+        "Who was the first person who made you feel genuinely seen, and what did they do?",
+        "What is a story from your childhood that explains more about you than you realize?",
+        "What did you think love would look like when you were sixteen?",
+        "What is something you inherited from your family that you are working hard to put down?",
+        "Which friendship shaped you the most, even if it is over now?",
+        "What is the loneliest you had ever been before we met?",
+        "What is a smell or a sound that sends you straight back to being a kid?",
+        "What did you want to be when you grew up, and what happened to that dream?",
+        "What is something your family does that you assumed every family did, until you got older?",
+        "Action: Send me a photo of yourself from before we met that you have never shown me.",
+        "What is a mistake from your past that you have forgiven yourself for, and how long did that take?",
+        "Who in your family are you most afraid of becoming?",
+        "What did a past relationship teach you that you would never accept again?",
+        "What were you like in the year right before we met?",
+        "What is a kindness a stranger showed you that you still think about?",
+        "What was the hardest year of your life, and what pulled you out of it?",
+        "What is something about your childhood you did not realize was unusual until you described it to someone?",
+        "Which of your parents do you understand better now than you did at twenty?",
+        "What is a place from your past you want to take me to, and what do you want me to see there?",
+        "What is something you used to be ashamed of and are not anymore?",
+        "Who were you closest to growing up, and what happened to that closeness?",
+        "What is the first heartbreak you remember, romantic or not?",
+        "Action: Find a song you loved at fourteen, send it to me, and offer no explanation or apology.",
+        "What is a habit you built to survive something that you no longer need?",
+        "What did you look for in people before you understood what you actually needed?",
+        "What is a compliment you got as a child that you have been chasing ever since?",
+        "What is something you gave up on too early?",
+        "Who did you pretend to be in order to be liked, and when did you stop?",
+        "What is the bravest thing you did before you turned twenty?",
+        "What is a family tradition you want to keep, and one you want to end with you?",
+        "What is something you have never told anyone simply because it never came up?",
+        "What was your relationship with being alone before we met?",
+        "What is a version of your life that almost happened, if one decision had gone the other way?",
+        "Action: Tell me about the mark or scar on your body with the longest story behind it.",
+        "What did you think was wrong with you as a teenager that turned out to be completely normal?",
+        "What is something about your life now that your younger self would not believe?",
+        "Who taught you how to apologize, or did you have to work it out alone?",
+        "What is a book or a film that rearranged something in you when you were young?",
+        "What is the worst advice you ever took, and who gave it to you?",
+        "What did home mean to you before we met, and has that definition changed?",
+        "What is something you were good at as a kid that you have let go of entirely?",
+        "What is a memory you have never been able to explain properly to anyone?",
+        "Which of your old friends would understand us best, and what would they say about me?",
+        "What is something you were punished for that you would do again?",
+        "What is the longest you have ever gone without telling anyone how you really were?",
+        "What were you hoping for right before we met, even if you could not have named it then?",
+        "Action: Describe the exact moment in your past when you would have most needed to hear about me."
+      ]},
+      { id: 'hardPart', name: 'The Hard Part', rgb: '96,165,250',
+        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5.4" cy="12" r="2.6"/><circle cx="18.6" cy="12" r="2.6"/><path d="M8.6 12h1.6l1.1-2.6 1.4 5.2 1.1-2.6h1.6"/></svg>',
+        cards: [
+        "What is the thing about this distance you have stopped telling me, because you did not want to make it heavier?",
+        "When was the last time you cried about us, and what set it off?",
+        "What is a fear about us that you have never said out loud?",
+        "What do you need from me that you have been too proud to ask for?",
+        "When we argue, what are you actually afraid is going to happen?",
+        "What is something I do that hurts more than I probably know?",
+        "What is the loneliest hour of your week, and where am I in it?",
+        "What is a promise about this relationship that scares you to make?",
+        "Which of us do you think is carrying more of this right now, and be honest.",
+        "What have you forgiven me for without ever telling me there was something to forgive?",
+        "What have you given up to be with me, and do you resent it even a little?",
+        "What question about us are you avoiding asking me?",
+        "When you imagine this not working out, what is the reason in that version?",
+        "What is a part of your life I know almost nothing about, and why have I not seen it?",
+        "What do you do when you are upset with me and decide to say nothing?",
+        "What is the hardest part of explaining us to other people?",
+        "When did you last feel genuinely alone inside this relationship?",
+        "What does my silence feel like to you, and what story do you tell yourself about it?",
+        "What is something you need me to stop doing, starting now?",
+        "What is a conversation we keep having that never actually resolves?",
+        "What are you most afraid I will eventually find out about you?",
+        "How much of your real day stays out of our calls, and why?",
+        "What is a boundary you have wanted to set with me but have not?",
+        "When did you last doubt this, and what pulled you back?",
+        "What is a way I have changed that you have not decided how you feel about yet?",
+        "What do you think I am in denial about?",
+        "What is something about this arrangement that is genuinely unfair to you?",
+        "What are you most tired of being strong about?",
+        "When we finally close this distance, what are you quietly afraid will change?",
+        "What do you think the real reason behind our last argument was?",
+        "What have you been pretending to be fine with?",
+        "What is a need of yours that I keep misunderstanding?",
+        "What do you wish I would notice without you having to point it out?",
+        "If you could make me feel one thing you have been feeling lately, what would it be?",
+        "Action: Say the sentence about us you have been editing in your head for weeks, exactly as it is, unpolished.",
+        "What is the hardest truth about long distance that nobody warned you about?",
+        "What do you think I am sacrificing that I never mention?",
+        "What is a timeline for us that you need to hear me say out loud?",
+        "Where do you think we are weakest, and what would you do about it?",
+        "What is something I said once that you have never been able to shake?",
+        "What do you need to hear from me on the nights when this feels impossible?",
+        "What part of yourself do you hide on calls because you do not want to worry me?",
+        "What is the difference between how we actually are and how you describe us to other people?",
+        "What would you change about how we handle being apart, if I agreed to anything?",
+        "What is a decision coming for us that you are dreading?",
+        "What are you grieving about this relationship, even though nothing is wrong?",
+        "When do you feel furthest from me, even on a good day?",
+        "What is the kindest thing I could do for you this week that I have not thought of?",
+        "What do you want me to promise you right now, and do you believe I can keep it?",
+        "Action: Tell me one thing you have been holding back, and let me just listen without answering."
+      ]},
+      { id: 'becoming', name: 'Becoming', rgb: '196,181,253',
+        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20.6V10.4"/><path d="M12 10.4c0-3.5 2.6-6.4 6.2-6.4 0 3.5-2.6 6.4-6.2 6.4Z"/><path d="M12 14.6c-2.9 0-5.3-2.4-5.3-5.3 2.9 0 5.3 2.4 5.3 5.3Z"/></svg>',
+        cards: [
+        "Who are you becoming, and do you like them?",
+        "What are you working on that has nothing to do with me?",
+        "What is a part of yourself you have outgrown this year?",
+        "What would you be doing right now if you were not afraid of being bad at it?",
+        "What is the most honest thing you could say about where your life is going?",
+        "What is a version of your future that you want but have not admitted to wanting?",
+        "What have you learned about yourself from being apart from me?",
+        "What is a skill you are quietly building?",
+        "Who do you want to be in ten years, in one sentence, with no hedging?",
+        "What did you believe a year ago that you no longer believe?",
+        "What is the risk you keep almost taking?",
+        "What does a good life look like to you, stripped of everything you think it should look like?",
+        "What are you proud of this month that nobody congratulated you for?",
+        "What is a fear that used to run your life and no longer does?",
+        "What do you want to be known for by the people who actually know you?",
+        "What is a habit you have built that your past self would be stunned by?",
+        "What are you still doing out of obligation, and when will you stop?",
+        "What would you need in order to feel like your life is actually yours?",
+        "What is something you want to learn that has no practical use at all?",
+        "What part of your ambition do you hide because saying it feels arrogant?",
+        "Action: Write down the one goal you have not told me about, then read it to me.",
+        "What is the biggest thing you have changed your mind about since we met?",
+        "What is the gap between who you are and who you are trying to be?",
+        "What does rest look like for you, and when did you last have any?",
+        "What do you need to let go of before the next part of your life can start?",
+        "If money and distance were solved tomorrow, what would you actually do with your days?",
+        "What is a compliment about your character that would mean the most to you?",
+        "Who do you admire, and what specifically are you trying to take from them?",
+        "What is the hardest thing you are currently learning?",
+        "What do you need to forgive yourself for in order to move forward?",
+        "What is a dream you have scaled down, and should you have?",
+        "What is something about your ordinary days that you find genuinely beautiful?",
+        "What are you avoiding because succeeding at it would change your life?",
+        "What does your ideal ordinary Tuesday look like five years from now?",
+        "What is a value you hold that costs you something?",
+        "What do you want me to hold you accountable for?",
+        "What is the thing you would regret never trying?",
+        "How has loving someone far away made you better at being by yourself?",
+        "What is a question about your own life that you cannot answer yet?",
+        "What do you want to be braver about?",
+        "Action: Name one thing you will do before we next see each other, and let me hold you to it.",
+        "What is a strength of yours that came out of something difficult?",
+        "What do you want this next decade of your life to be about?",
+        "What have you stopped apologizing for?",
+        "What kind of partner are you trying to become, separate from anything I need?",
+        "In what part of your life do you most want to stop settling?",
+        "What will you not compromise on, no matter who asks?",
+        "What is a hard thing you went through that you are now glad about?",
+        "What do you want to have built by the time we are old?",
+        "Action: Tell me who you think I am becoming, and what you hope I never lose."
+      ]}
+      ]
+    }];
 
-    // 2. Category metadata — name, accent, icon
-    const ICONS = {
-      stayClose: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="5.4" cy="12" r="2.6"/><circle cx="18.6" cy="12" r="2.6"/><path d="M8.6 12h6.8" stroke-dasharray="2 2.6"/></svg>',
-      ourFuture: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M3 18.6h18"/><path d="M6.8 18.6a5.2 5.2 0 0 1 10.4 0"/><path d="M12 4.2v2.2M5.6 7.1l1.5 1.5M18.4 7.1l-1.5 1.5"/></svg>',
-      keepSpark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" aria-hidden="true"><path d="M14 2.6c.85 5.1 2.3 6.55 7.4 7.4-5.1.85-6.55 2.3-7.4 7.4-.85-5.1-2.3-6.55-7.4-7.4 5.1-.85 6.55-2.3 7.4-7.4Z"/><path d="M6 14.4c.36 2.1.96 2.7 3.06 3.06-2.1.36-2.7.96-3.06 3.06-.36-2.1-.96-2.7-3.06-3.06 2.1-.36 2.7-.96 3.06-3.06Z"/></svg>'
-    };
-
-    const CATEGORIES = [
-      { id: 'stayClose', name: 'Stay Close',     rgb: '242,197,124' },
-      { id: 'ourFuture', name: 'Our Future',     rgb: '167,139,250' },
-      { id: 'keepSpark', name: 'Keep the Spark', rgb: '251,113,133' }
-    ];
-    const CAT = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
-    const TOTAL = CATEGORIES.reduce((n, c) => n + masterDeck[c.id].length, 0);
+    // 2. Lookups. Suit ids are unique across every deck, so a stored card only
+    //    needs its suit id to render with the right name, icon and accent.
+    const DECK = Object.fromEntries(DECKS.map(d => [d.id, d]));
+    const SUIT = Object.fromEntries(DECKS.flatMap(d => d.suits.map(s => [s.id, s])));
+    const FIRST = DECKS[0].id;
+    const total = deck => deck.suits.reduce((n, s) => n + s.cards.length, 0);
 
     // 3. Elements
     const $ = id => document.getElementById(id);
@@ -552,10 +753,11 @@ body[data-cat] .aurora{opacity:1}
       card: $('card'), faceCover: $('faceCover'), faceQ: $('faceQ'),
       qIcon: $('qIcon'), qCat: $('qCat'), qChip: $('qChip'), qText: $('qText'), qLeft: $('qLeft'),
       coverSub: $('coverSub'), coverHint: $('coverHint'),
-      byline: $('byline'), live: $('live'), picker: $('picker'),
-      railFill: $('railFill'), drawnTotal: $('drawnTotal'),
+      byline: $('byline'), live: $('live'), picker: $('picker'), deckbar: $('deckbar'),
+      railFill: $('railFill'), drawnTotal: $('drawnTotal'), totalCount: $('totalCount'),
       status: $('status'), statusText: $('statusText'),
       resetBtn: $('resetBtn'), sheet: $('sheet'), sheetGo: $('sheetGo'), sheetNo: $('sheetNo'),
+      sheetTitle: $('sheetTitle'), sheetBody: $('sheetBody'),
       toast: $('toast')
     };
 
@@ -614,15 +816,37 @@ body[data-cat] .aurora{opacity:1}
     }
 
     // 6. Rendering
-    function normalize(deckState) {
-      // Firebase drops empty arrays entirely, so a missing suit means "all drawn".
+    // `state` is a deck node's saved deckState, or null when that deck has never
+    // been played. Firebase drops empty arrays, so inside a node that does exist
+    // a missing suit means "all drawn" — including the case where every suit is
+    // drained and the deckState key disappears entirely, which is why a drawn-out
+    // deck has to be passed as {} rather than null.
+    function normalize(deck, state) {
       const out = {};
-      for (const c of CATEGORIES) {
-        out[c.id] = deckState
-          ? (Array.isArray(deckState[c.id]) ? deckState[c.id].filter(t => typeof t === 'string') : [])
-          : masterDeck[c.id].slice();
+      for (const s of deck.suits) {
+        out[s.id] = state
+          ? (Array.isArray(state[s.id]) ? state[s.id].filter(t => typeof t === 'string') : [])
+          : s.cards.slice();
       }
       return out;
+    }
+
+    // Where one deck's {currentCard, deckState} lives inside the shared root.
+    function nodeFor(root, id) {
+      if (root && root.decks && root.decks[id]) return root.decks[id];
+      // Before there were two decks the state sat at the root, unnamespaced, and
+      // it was always the first deck. Read it in place; the next draw rewrites
+      // the root in the current shape and this branch stops being reachable.
+      if (id === FIRST && root && !root.decks && (root.currentCard || root.deckState)) {
+        return { currentCard: root.currentCard, deckState: root.deckState };
+      }
+      return null;
+    }
+
+    function remaining(deck, root) {
+      const node = nodeFor(root, deck.id);
+      const pools = normalize(deck, node ? (node.deckState || {}) : null);
+      return deck.suits.reduce((n, s) => n + pools[s.id].length, 0);
     }
 
     function relTime(ts) {
@@ -637,9 +861,10 @@ body[data-cat] .aurora{opacity:1}
     }
 
     function fillQuestion(card, deck) {
-      const meta = CAT[card.category];
+      const meta = SUIT[card.category];
       document.body.dataset.cat = card.category;
-      el.qIcon.innerHTML = ICONS[card.category];
+      document.body.style.setProperty('--accent-rgb', meta.rgb);
+      el.qIcon.innerHTML = meta.icon;
       el.qCat.textContent = meta.name;
 
       let text = String(card.text);
@@ -656,56 +881,102 @@ body[data-cat] .aurora{opacity:1}
 
     function fillCover() {
       document.body.removeAttribute('data-cat');
-      el.coverSub.textContent = 'The deck is face down.';
+      document.body.style.setProperty('--accent-rgb', activeDeck.rgb);
+      el.coverSub.textContent = `The ${activeDeck.name} deck is face down.`;
       el.coverHint.textContent = 'Choose a category';
     }
 
-    function renderCounts(deck) {
+    function renderCounts(pools) {
       let left = 0;
-      for (const c of CATEGORIES) {
-        const n = deck[c.id].length;
+      for (const s of activeDeck.suits) {
+        const n = pools[s.id].length;
         left += n;
-        const btn = el.picker.querySelector(`[data-cat="${c.id}"]`);
+        const btn = el.picker.querySelector(`[data-cat="${s.id}"]`);
         btn.querySelector('.pick__count').innerHTML = `<b>${n}</b> left`;
         btn.disabled = n === 0;
-        btn.setAttribute('aria-label', `${c.name}, ${n} card${n === 1 ? '' : 's'} left`);
+        btn.setAttribute('aria-label', `${s.name}, ${n} card${n === 1 ? '' : 's'} left`);
       }
-      const drawn = TOTAL - left;
+      const whole = total(activeDeck);
+      const drawn = whole - left;
       el.drawnTotal.textContent = drawn;
-      el.railFill.style.width = (drawn / TOTAL * 100) + '%';
+      el.railFill.style.width = (drawn / whole * 100) + '%';
     }
 
-    let localDeck = normalize(null);
-    let lastKey = null;
+    function renderDeckBar(root) {
+      for (const btn of el.deckbar.children) {
+        const d = DECK[btn.dataset.deck];
+        const left = remaining(d, root);
+        btn.setAttribute('aria-pressed', String(d.id === activeId));
+        btn.querySelector('.deckbtn__n').textContent = left;
+        btn.setAttribute('aria-label', `${d.name} deck, ${left} of ${total(d)} cards left`);
+      }
+    }
+
+    // Swap the picker and the palette over to a deck.
+    function mountDeck(deck) {
+      activeId = deck.id;
+      activeDeck = deck;
+      document.body.dataset.deck = deck.id;
+      document.body.style.setProperty('--rail-a', deck.rail[0]);
+      document.body.style.setProperty('--rail-b', deck.rail[1]);
+      document.body.style.setProperty('--rail-c', deck.rail[2]);
+      el.totalCount.textContent = total(deck);
+      el.picker.style.gridTemplateColumns = `repeat(${deck.suits.length},1fr)`;
+      el.picker.textContent = '';
+      for (const s of deck.suits) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'pick';
+        btn.dataset.cat = s.id;
+        btn.style.setProperty('--accent-rgb', s.rgb);
+        btn.setAttribute('aria-pressed', 'false');
+        btn.innerHTML = `${s.icon}<span class="pick__name">${s.name}</span><span class="pick__count"><b>${s.cards.length}</b> left</span>`;
+        btn.addEventListener('click', () => draw(s.id));
+        el.picker.appendChild(btn);
+      }
+    }
+
+    let activeId = FIRST;
+    let activeDeck = DECK[FIRST];
+    let localDeck = normalize(activeDeck, null);
+    // Stands in for the shared root when there is no database to talk to.
+    const soloRoot = { activeDeck: FIRST, decks: {} };
+    let lastKey;                 // undefined until the first render
     let lastCard = null;
 
-    function applyState(data) {
-      const deck = normalize(data && data.deckState);
-      localDeck = deck;
-      renderCounts(deck);
+    function applyState(root) {
+      const wanted = root && DECK[root.activeDeck] ? root.activeDeck : FIRST;
+      if (wanted !== activeId) mountDeck(DECK[wanted]);
 
-      const card = data && data.currentCard;
-      if (!card || !card.text) {
-        if (lastKey !== null) { lastKey = null; turn('cover', fillCover); }
-        else fillCover();
-        el.byline.textContent = '';
-        for (const b of el.picker.children) b.setAttribute('aria-pressed', 'false');
-        return;
-      }
+      const node = nodeFor(root, activeId);
+      const pools = normalize(activeDeck, node ? (node.deckState || {}) : null);
+      localDeck = pools;
+      renderCounts(pools);
+      renderDeckBar(root);
 
-      const key = `${card.category}|${card.text}|${card.at || ''}`;
+      const card = node && node.currentCard && node.currentCard.text ? node.currentCard : null;
+      // The deck id is part of the key, so switching decks always counts as a
+      // change and the card turns over to whatever the other deck was left on.
+      const key = card ? `${activeId}|${card.category}|${card.text}|${card.at || ''}` : null;
+
       if (key !== lastKey) {
         lastKey = key;
-        turn('q', () => fillQuestion(card, deck));
-        el.live.textContent = `${CAT[card.category].name}: ${card.text}`;
+        if (card) {
+          turn('q', () => fillQuestion(card, pools));
+          el.live.textContent = `${SUIT[card.category].name}: ${card.text}`;
+        } else {
+          turn('cover', fillCover);
+        }
+      } else if (card) {
+        fillQuestion(card, pools);   // counts changed under an unchanged card
       } else {
-        fillQuestion(card, deck); // counts changed under an unchanged card
+        fillCover();
       }
 
       for (const b of el.picker.children) {
-        b.setAttribute('aria-pressed', String(b.dataset.cat === card.category));
+        b.setAttribute('aria-pressed', String(!!card && b.dataset.cat === card.category));
       }
-      el.byline.innerHTML = card.by
+      el.byline.innerHTML = card && card.by
         ? `<b>${card.by === myId ? 'You' : 'They'}</b> drew this &middot; ${relTime(card.at)}`
         : '';
       lastCard = card;
@@ -729,6 +1000,9 @@ body[data-cat] .aurora{opacity:1}
     let sheetReturn = null;
     function openSheet() {
       sheetReturn = document.activeElement;
+      // Reshuffling is scoped to the deck on the table, so the copy has to name it.
+      el.sheetTitle.textContent = `Reshuffle ${activeDeck.name}?`;
+      el.sheetBody.textContent = `All ${total(activeDeck)} ${activeDeck.name} cards go back into the deck for both of you, and the card on the table is cleared. Your other deck is untouched.`;
       el.sheet.hidden = false;
       requestAnimationFrame(() => el.sheet.classList.add('is-open'));
       el.sheetGo.focus();
@@ -743,25 +1017,26 @@ body[data-cat] .aurora{opacity:1}
     el.sheet.addEventListener('click', e => { if (e.target === el.sheet) closeSheet(); });
     addEventListener('keydown', e => {
       if (e.key === 'Escape' && !el.sheet.hidden) closeSheet();
-      if (el.sheet.hidden && !e.metaKey && !e.ctrlKey && e.key.length === 1 && '123'.includes(e.key)) {
-        const c = CATEGORIES[Number(e.key) - 1];
-        if (c) draw(c.id);
+      if (el.sheet.hidden && !e.metaKey && !e.ctrlKey && e.key.length === 1) {
+        const n = Number(e.key);
+        const s = n >= 1 ? activeDeck.suits[n - 1] : null;
+        if (s) draw(s.id);
       }
     });
     el.sheetGo.addEventListener('click', () => { closeSheet(); reshuffle(); });
 
-    // 8. Picker
-    for (const c of CATEGORIES) {
+    // 8. Deck switch, then the picker for whichever deck we open on
+    for (const d of DECKS) {
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'pick';
-      btn.dataset.cat = c.id;
-      btn.style.setProperty('--accent-rgb', c.rgb);
-      btn.setAttribute('aria-pressed', 'false');
-      btn.innerHTML = `${ICONS[c.id]}<span class="pick__name">${c.name}</span><span class="pick__count"><b>${masterDeck[c.id].length}</b> left</span>`;
-      btn.addEventListener('click', () => draw(c.id));
-      el.picker.appendChild(btn);
+      btn.className = 'deckbtn';
+      btn.dataset.deck = d.id;
+      btn.setAttribute('aria-pressed', String(d.id === FIRST));
+      btn.innerHTML = `<span>${d.name}</span><span class="deckbtn__n">${total(d)}</span>`;
+      btn.addEventListener('click', () => switchDeck(d.id));
+      el.deckbar.appendChild(btn);
     }
+    mountDeck(DECK[FIRST]);
 
     // 9. Firebase
     let gameRef = null, db = null;
@@ -792,40 +1067,64 @@ body[data-cat] .aurora{opacity:1}
       });
     } else {
       setStatus('off', 'Solo');
-      applyState(null);
+      applyState(soloRoot);
       toast('Playing solo — this device is not synced to your partner.');
     }
 
     // 10. Actions
     let busy = false;
 
+    // Which deck is on the table is itself shared, so you both turn over the
+    // same cards instead of quietly reading out of different decks.
+    function switchDeck(id) {
+      if (busy || id === activeId || !DECK[id]) return;
+      if (!gameRef) { soloRoot.activeDeck = id; applyState(soloRoot); return; }
+      set(ref(db, 'sharedGame/activeDeck'), id)
+        .catch(err => { console.error(err); toast('Could not switch decks right now.'); });
+    }
+
     async function draw(category) {
       if (busy) return;
       if (localDeck[category].length === 0) {
-        toast(`${CAT[category].name} is empty. Reshuffle to bring it back.`);
+        toast(`${SUIT[category].name} is empty. Reshuffle to bring it back.`);
         return;
       }
 
+      const deckId = activeId, deckMeta = activeDeck;
       busy = true;
       document.body.classList.add('busy');
       try {
         if (!gameRef) {
           const pool = localDeck[category];
           const text = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
-          applyState({ currentCard: { category, text, by: myId, at: Date.now() }, deckState: localDeck });
+          soloRoot.decks[deckId] = { currentCard: { category, text, by: myId, at: Date.now() }, deckState: localDeck };
+          applyState(soloRoot);
           return;
         }
 
         // A transaction, so two simultaneous draws can't clobber each other's deck.
+        // It runs on the whole root rather than this deck's node so that the other
+        // deck's progress and any pre-namespace state are carried over by hand.
         const result = await runTransaction(gameRef, current => {
-          const deck = normalize(current && current.deckState);
-          const pool = deck[category];
+          const node = nodeFor(current, deckId);
+          const pools = normalize(deckMeta, node ? (node.deckState || {}) : null);
+          const pool = pools[category];
           // Abort (rather than commit an unchanged value) so `committed` comes
           // back false and the caller can say the suit ran out. Reachable only
           // if the other player drained it between our render and this click.
           if (!pool.length) return;
           const text = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
-          return { currentCard: { category, text, by: myId, at: Date.now() }, deckState: deck };
+
+          const decks = {};
+          for (const other of DECKS) {
+            if (other.id === deckId) continue;
+            const kept = nodeFor(current, other.id);
+            if (kept) decks[other.id] = kept;
+          }
+          decks[deckId] = { currentCard: { category, text, by: myId, at: Date.now() }, deckState: pools };
+
+          const chosen = current && DECK[current.activeDeck] ? current.activeDeck : deckId;
+          return { activeDeck: chosen, decks };
         }, { applyLocally: false });
 
         if (!result.committed) toast('That suit just ran out. Try another.');
@@ -839,12 +1138,27 @@ body[data-cat] .aurora{opacity:1}
     }
 
     function reshuffle() {
+      const deckId = activeId, name = activeDeck.name, count = total(activeDeck);
       if (gameRef) {
-        set(gameRef, null).catch(err => { console.error(err); toast('Could not reshuffle right now.'); });
+        // Rewriting the root rather than deleting one node, because dropping the
+        // last node would take `decks` with it and let nodeFor fall back to the
+        // pre-namespace state sitting at the root.
+        runTransaction(gameRef, current => {
+          const decks = {};
+          for (const other of DECKS) {
+            if (other.id === deckId) continue;
+            const kept = nodeFor(current, other.id);
+            if (kept) decks[other.id] = kept;
+          }
+          const chosen = current && DECK[current.activeDeck] ? current.activeDeck : deckId;
+          return { activeDeck: chosen, decks };
+        }, { applyLocally: false })
+          .catch(err => { console.error(err); toast('Could not reshuffle right now.'); });
       } else {
-        applyState(null);
+        delete soloRoot.decks[deckId];
+        applyState(soloRoot);
       }
-      toast('All 150 cards are back in the deck.');
+      toast(`All ${count} ${name} cards are back in the deck.`);
     }
   </script>
 </body>
